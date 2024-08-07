@@ -1,0 +1,14 @@
+dataset_takeda_a/*
+dataset_takeda_b/*
+dataset_takeda_c/*
+dataset_takeda_d/*
+dataset_rittai_p/*
+dataset_bottom/*
+input/*
+target/*
+parking_model_bottom.pth
+parking_model_rittai_p.pth
+parking_model_takeda_a.pth
+parking_model_takeda_b.pth
+parking_model_takeda_c.pth
+parking_model_takeda_d.pth
