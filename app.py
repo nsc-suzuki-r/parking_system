@@ -3,10 +3,8 @@ from flask import (
     request,
     jsonify,
     render_template,
-    make_response,
     send_from_directory,
 )
-from werkzeug.utils import secure_filename
 import os
 import subprocess
 import glob
@@ -62,100 +60,113 @@ def index():
 
 @app.route("/upload", methods=["POST"])
 def upload_file():
-    try:
-        if "file" not in request.files:
-            return jsonify({"error": "No file part in the request"}), 400
+    if "file" not in request.files:
+        return jsonify({"error": "No file part in the request"}), 400
 
-        file = request.files["file"]
-        if file.filename == "":
-            return jsonify({"error": "No selected file"}), 400
+    file = request.files["file"]
+    if file.filename == "":
+        return jsonify({"error": "No selected file"}), 400
 
-        if file:
-            # inputディレクトリ内の既存の画像を削除
-            for existing_file in glob.glob(
-                os.path.join(app.config["UPLOAD_FOLDER"], "*")
-            ):
-                os.remove(existing_file)
-
-            # ファイル名をUUIDに変換
-            filename = f"{uuid.uuid4()}.png"
-            filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
-            file.save(filepath)
-
-            # 画像を6分割
-            image = Image.open(filepath)
-            width, height = image.size
-            segment_height = height // 6 - 4
-
-            # 分割した画像の保存
-            for i, (model_path, output_name) in enumerate(models_and_outputs.items()):
-                box = (0, i * segment_height, width, (i + 1) * segment_height)
-                segment = image.crop(box)
-                segment_path = os.path.join(app.config["TARGET_FOLDER"], output_name)
-                segment.save(segment_path)
-
-            # 各モデルで予測を実行
-            results = {}
-            print(f"{ models_and_outputs.items() }")
-
-            for model_path, output_name in models_and_outputs.items():
-                # modelの予測を行うスクリプトを実行
-                result = subprocess.run(
-                    [
-                        "python3",
-                        "predict.py",
-                        os.path.join(app.config["TARGET_FOLDER"], output_name),
-                        model_path,
-                    ],
-                    capture_output=True,
-                    text=True,
-                    encoding="utf-8",
-                )
-
-                if result.returncode != 0:
-                    return (
-                        jsonify(
-                            {
-                                "error": f"Error running prediction script for {output_name}",
-                                "details": result.stderr,
-                            }
-                        ),
-                        500,
-                    )
-
-                results[output_name] = result.stdout.strip()
-
-                if parking_lot_ids[output_name] is not None:
-                    parking_status = results[output_name]
-                    body = {
-                        "gatewayid": parking_lot_ids[output_name],
-                        "value": parking_status,
-                        "type": "parking-lot",
-                    }
-                    response = requests.post(
-                        visitory_url, headers=visitory_headers, data=json.dumps(body)
-                    )
-                    if response.status_code == 200:
-                        print(
-                            f"Successfully updated sensor status for {output_name}: {parking_lot_ids[output_name]}."
-                        )
-                    else:
-                        print(
-                            f"Failed to update sensor status: {response.status_code}, {response.text}"
-                        )
-
+    if file:
+        try:
+            clear_existing_files(app.config["UPLOAD_FOLDER"])
+            filename, filepath = save_file(file, app.config["UPLOAD_FOLDER"])
+            segments = split_image(
+                filepath, app.config["TARGET_FOLDER"], models_and_outputs
+            )
+            results = run_predictions(
+                segments,
+                models_and_outputs,
+                visitory_url,
+                visitory_headers,
+                parking_lot_ids,
+            )
             return jsonify({"results": results}), 200
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
 
-        return jsonify({"error": "File upload failed"}), 500
-
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    return jsonify({"error": "File upload failed"}), 500
 
 
 @app.route("/target/<filename>")
 def uploaded_file(filename):
-    print(filename)
     return send_from_directory(app.config["TARGET_FOLDER"], filename)
+
+
+def clear_existing_files(folder):
+    for existing_file in glob.glob(os.path.join(folder, "*")):
+        os.remove(existing_file)
+
+
+def save_file(file, folder):
+    filename = f"{uuid.uuid4()}.png"
+    filepath = os.path.join(folder, filename)
+    file.save(filepath)
+    return filename, filepath
+
+
+def split_image(filepath, target_folder, models_and_outputs):
+    image = Image.open(filepath)
+    width, height = image.size
+    segment_height = height // 6 - 4
+    segments = []
+
+    for i, (model_path, output_name) in enumerate(models_and_outputs.items()):
+        box = (0, i * segment_height, width, (i + 1) * segment_height)
+        segment = image.crop(box)
+        segment_path = os.path.join(target_folder, output_name)
+        segment.save(segment_path)
+        segments.append((segment_path, model_path, output_name))
+
+    return segments
+
+
+def run_predictions(
+    segments, models_and_outputs, visitory_url, visitory_headers, parking_lot_ids
+):
+    results = {}
+
+    for segment_path, model_path, output_name in segments:
+        result = subprocess.run(
+            ["python3", "predict.py", segment_path, model_path],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+
+        if result.returncode != 0:
+            raise Exception(
+                f"Error running prediction script for {output_name}: {result.stderr}"
+            )
+
+        results[output_name] = result.stdout.strip()
+
+        if parking_lot_ids[output_name] is not None:
+            update_sensor_status(
+                visitory_url,
+                visitory_headers,
+                parking_lot_ids[output_name],
+                results[output_name],
+            )
+
+    return results
+
+
+def update_sensor_status(visitory_url, visitory_headers, parking_lot_id, status):
+    body = {
+        "gatewayid": parking_lot_id,
+        "value": status,
+        "type": "parking-lot",
+    }
+
+    response = requests.post(
+        visitory_url, headers=visitory_headers, data=json.dumps(body)
+    )
+
+    if response.status_code != 200:
+        raise Exception(
+            f"Failed to update sensor status: {response.status_code}, {response.text}"
+        )
 
 
 if __name__ == "__main__":
