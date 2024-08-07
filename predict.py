@@ -6,6 +6,10 @@ from torchvision.models import ResNet18_Weights
 import os
 import sys
 
+EMPTY = 1
+FULL = 2
+CROWDED = 3
+
 
 def load_model(model_path):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -39,11 +43,11 @@ def predict(image_path, model, device):
         outputs = model(image)
         _, preds = torch.max(outputs, 1)
         if preds.item() == 0:
-            return "混"
+            return CROWDED
         elif preds.item() == 1:
-            return "空"
+            return EMPTY
         else:
-            return "満"
+            return FULL
 
 
 # メイン処理

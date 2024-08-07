@@ -12,6 +12,12 @@ import subprocess
 import glob
 import uuid
 from PIL import Image
+import requests
+import json
+from dotenv import load_dotenv
+
+# .envファイルの内容を読み込む
+load_dotenv()
 
 app = Flask(__name__)
 app.config["UPLOAD_FOLDER"] = "input"
@@ -29,6 +35,23 @@ models_and_outputs = {
     "parking_model_takeda_d.pth": "takeda_d.jpg",
     "parking_model_rittai_p.pth": "rittai_p.jpg",
     "parking_model_bottom.pth": "bottom.jpg",
+}
+
+# Visitory APIの設定
+visitory_url = os.getenv("VISITORY_URL")
+visitory_headers = {
+    "Authorization": os.getenv("VISITORY_AUTH"),
+    "Content-Type": "application/json",
+}
+
+# 駐車場のIDマッピング
+parking_lot_ids = {
+    "takeda_a.jpg": os.getenv("PARKING_LOT_TAKEDA_A"),
+    "takeda_b.jpg": os.getenv("PARKING_LOT_TAKEDA_B"),
+    "takeda_c.jpg": os.getenv("PARKING_LOT_TAKEDA_C"),
+    "takeda_d.jpg": os.getenv("PARKING_LOT_TAKEDA_D"),
+    "rittai_p.jpg": os.getenv("PARKING_LOT_RITTAI_P"),
+    "bottom.jpg": os.getenv("PARKING_LOT_BOTTOM"),
 }
 
 
@@ -76,8 +99,6 @@ def upload_file():
             print(f"{ models_and_outputs.items() }")
 
             for model_path, output_name in models_and_outputs.items():
-                print(f"{ model_path }")
-                print(f"{ output_name }")
                 # modelの予測を行うスクリプトを実行
                 result = subprocess.run(
                     [
@@ -103,6 +124,25 @@ def upload_file():
                     )
 
                 results[output_name] = result.stdout.strip()
+
+                if parking_lot_ids[output_name] is not None:
+                    parking_status = results[output_name]
+                    body = {
+                        "gatewayid": parking_lot_ids[output_name],
+                        "value": parking_status,
+                        "type": "parking-lot",
+                    }
+                    response = requests.post(
+                        visitory_url, headers=visitory_headers, data=json.dumps(body)
+                    )
+                    if response.status_code == 200:
+                        print(
+                            f"Successfully updated sensor status for {output_name}: {parking_lot_ids[output_name]}."
+                        )
+                    else:
+                        print(
+                            f"Failed to update sensor status: {response.status_code}, {response.text}"
+                        )
 
             return jsonify({"results": results}), 200
 

@@ -12,3 +12,4 @@ parking_model_takeda_a.pth
 parking_model_takeda_b.pth
 parking_model_takeda_c.pth
 parking_model_takeda_d.pth
+.env
