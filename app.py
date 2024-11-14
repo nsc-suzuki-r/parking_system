@@ -4,7 +4,10 @@ from flask import (
     jsonify,
     render_template,
     send_from_directory,
+    redirect,
+    url_for,
 )
+import shutil
 import os
 import subprocess
 import glob
@@ -58,6 +61,60 @@ def index():
     return render_template("index.html")
 
 
+# ベースディレクトリの設定
+classify_base_dir = "static/split_data"
+classify_dest_dir = {
+    "bottom": "dataset_bottom/train",
+    "rittai_p": "dataset_rittai_p/train",
+    "takeda_a": "dataset_takeda_a/train",
+    "takeda_b": "dataset_takeda_b/train",
+    "takeda_c": "dataset_takeda_c/train",
+    "takeda_d": "dataset_takeda_d/train",
+}
+
+
+# 初期化して、画像リストを取得
+def get_image_files():
+    images = []
+    for folder in os.listdir(classify_base_dir):
+        folder_path = os.path.join(classify_base_dir, folder)
+        if os.path.isdir(folder_path):
+            for img_file in sorted(os.listdir(folder_path)):
+                if img_file.endswith((".jpg", ".jpeg", ".png")):
+                    images.append((folder, img_file))
+    return images
+
+
+# グローバル変数に画像リストとインデックスを保持
+images = get_image_files()
+index = 0
+
+
+@app.route("/classify")
+def classify_page():
+    global images, index
+    if index >= len(images):
+        return "すべての画像が振り分けられました"
+    folder, img_file = images[index]
+    img_path = os.path.join(classify_base_dir, folder, img_file)
+    return render_template("classify.html", img_path=img_path)
+
+
+@app.route("/classify", methods=["POST"])
+def classify():
+    global index
+    category = request.form.get("category")
+    folder, img_file = images[index]
+    src_path = os.path.join(classify_base_dir, folder, img_file)
+    # 振り分け先のディレクトリを選択
+    if folder in classify_dest_dir:
+        dest_path = os.path.join(classify_dest_dir[folder], category)
+        os.makedirs(dest_path, exist_ok=True)
+        shutil.move(src_path, os.path.join(dest_path, img_file))
+    index += 1
+    return redirect(url_for("classify_page"))
+
+
 @app.route("/upload", methods=["POST"])
 def upload_file():
     if "file" not in request.files:
@@ -108,7 +165,7 @@ def save_file(file, folder):
 def split_image(filepath, target_folder, models_and_outputs):
     image = Image.open(filepath)
     width, height = image.size
-    segment_height = height // 6 - 4
+    segment_height = height // 6
     segments = []
 
     for i, (model_path, output_name) in enumerate(models_and_outputs.items()):

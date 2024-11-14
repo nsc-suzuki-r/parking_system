@@ -5,6 +5,9 @@ dataset_takeda_d/*
 dataset_rittai_p/*
 dataset_bottom/*
 input/*
+processed_data/*
+sample_data/*
+static/split_data/*
 target/*
 parking_model_bottom.pth
 parking_model_rittai_p.pth
