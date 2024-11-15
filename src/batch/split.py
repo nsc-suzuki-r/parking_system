@@ -14,7 +14,7 @@ def split_image(filepath, target_folder, models_and_outputs):
     # ファイル名と日付パスを取得
     original_filename = os.path.basename(filepath)  # 例: frame_0002.jpg
     date_str = (
-        os.path.dirname(filepath).replace("sample_data/", "").replace("/", "_")
+        os.path.dirname(filepath).replace("data/train/raw/", "").replace("/", "_")
     )  # 日付ディレクトリを "2024_11_06" に変換
 
     # 保存用のファイル名を生成（例: 2024_11_06_frame_0002.jpg）
@@ -43,7 +43,7 @@ def process_all_images(output_folder, target_folder, models_and_outputs):
     all_images = glob.glob(os.path.join(output_folder, "**", "*.jpg"), recursive=True)
 
     # 分割済みの元画像を移動するディレクトリ（sample_dataと同じ構造）
-    processed_base_dir = os.path.join(output_folder, "../processed_data")
+    processed_base_dir = os.path.join(output_folder, "../processed")
 
     for filepath in all_images:
         # 各画像を分割して保存
@@ -63,8 +63,8 @@ def process_all_images(output_folder, target_folder, models_and_outputs):
 
 
 # 使用例
-output_folder = "sample_data"
-target_folder = "static/split_data"
+output_folder = "data/train/raw"
+target_folder = "data/train/split"
 models_and_outputs = {
     "takeda_a": None,  # 画像名を動的に設定するため、値は任意でOK
     "takeda_b": None,

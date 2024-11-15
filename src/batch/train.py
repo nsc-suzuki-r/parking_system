@@ -27,12 +27,12 @@ data_transforms = {
 
 # データセット名と出力ファイル名のリスト
 datasets_and_models = [
-    ("dataset_takeda_a", "parking_model_takeda_a.pth"),
-    ("dataset_takeda_b", "parking_model_takeda_b.pth"),
-    ("dataset_takeda_c", "parking_model_takeda_c.pth"),
-    ("dataset_takeda_d", "parking_model_takeda_d.pth"),
-    ("dataset_rittai_p", "parking_model_rittai_p.pth"),
-    ("dataset_bottom", "parking_model_bottom.pth"),
+    ("dataset/takeda_a", "models/parking_model_takeda_a.pth"),
+    ("dataset/takeda_b", "models/parking_model_takeda_b.pth"),
+    ("dataset/takeda_c", "models/parking_model_takeda_c.pth"),
+    ("dataset/takeda_d", "models/parking_model_takeda_d.pth"),
+    ("dataset/rittai_p", "models/parking_model_rittai_p.pth"),
+    ("dataset/bottom", "models/parking_model_bottom.pth"),
 ]
 
 

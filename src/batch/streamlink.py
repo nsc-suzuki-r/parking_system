@@ -14,7 +14,7 @@ frame_interval = 600  # 10分ごとに1フレーム
 
 # 初期の日付に基づいて出力ディレクトリを作成
 current_date = datetime.now().strftime("%Y/%m/%d")
-output_dir = f"sample_data/{current_date}"
+output_dir = f"data/train/raw/{current_date}"
 os.makedirs(output_dir, exist_ok=True)
 
 try:

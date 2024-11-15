@@ -6,9 +6,9 @@ from torchvision.models import ResNet18_Weights
 import os
 import sys
 
-EMPTY = 1
-FULL = 2
-CROWDED = 3
+EMPTY = "1"
+FULL = "6"
+CROWDED = "5"
 
 
 def load_model(model_path):
