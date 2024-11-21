@@ -1,7 +1,6 @@
 import requests
 import json
 import os
-import subprocess
 from utils.predict import load_model, predict
 
 

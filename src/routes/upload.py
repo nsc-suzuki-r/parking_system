@@ -1,6 +1,6 @@
 from flask import request, jsonify
-from utils.file_utils import clear_existing_files, save_file
-from utils.image_processing import split_image
+from utils.file import clear_existing_files, save_file
+from utils.image import split_image
 from utils.visistory_api import run_predictions
 import os
 

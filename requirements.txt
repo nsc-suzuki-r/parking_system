@@ -1,3 +1,5 @@
+streamlink==5.6.1
+ffmpeg-python==0.2.0
 Flask==2.0.1
 torch==1.9.0
 torchvision==0.10.0
