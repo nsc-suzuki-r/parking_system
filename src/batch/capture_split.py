@@ -8,8 +8,9 @@ from dotenv import load_dotenv
 # .envファイルの内容を読み込む
 load_dotenv()
 
-# YouTubeライブのURL
+# YouTubeライブのURLとクッキーファイルのパスを取得
 youtube_url = os.getenv("YOUTUBE_URL")
+cookie_file_path = os.getenv("COOKIE_FILE_PATH")
 
 
 # 分割関数
@@ -41,7 +42,7 @@ def split_image(filepath, target_folder, models_and_outputs):
 
 # フレーム取得＆分割処理
 def capture_split(
-    youtube_url, output_folder, target_folder, models_and_outputs
+    youtube_url, cookie_file_path, output_folder, target_folder, models_and_outputs
 ):
     # 現在の日付に基づいて出力ディレクトリを作成
     current_date = datetime.now().strftime("%Y/%m/%d")
@@ -54,7 +55,7 @@ def capture_split(
 
     # streamlinkとffmpegを使って1フレームを取得
     command = (
-        f'streamlink -O "{youtube_url}" best | '
+        f'streamlink --http-cookie "cookies={cookie_file_path}" -O "{youtube_url}" best | '
         f'ffmpeg -y -i - -frames:v 1 "{output_path}"'
     )
     try:
@@ -90,4 +91,6 @@ models_and_outputs = {
 }
 
 # 実行
-capture_split(youtube_url, output_folder, target_folder, models_and_outputs)
+capture_split(
+    youtube_url, cookie_file_path, output_folder, target_folder, models_and_outputs
+)
