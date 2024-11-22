@@ -16,6 +16,30 @@ load_dotenv()
 
 # YouTubeライブのURL
 youtube_url = os.getenv("YOUTUBE_URL")
+youtube_cookie_sid_key = os.getenv("YOUTUBE_COOKIE_SID_KEY")
+youtube_cookie_hsid_key = os.getenv("YOUTUBE_COOKIE_HSID_KEY")
+youtube_cookie_ssid_key = os.getenv("YOUTUBE_COOKIE_SSID_KEY")
+youtube_cookie_sapisid_key = os.getenv("YOUTUBE_COOKIE_SAPISID_KEY")
+youtube_cookie_secure_1psidts_key = os.getenv("YOUTUBE_COOKIE_SECURE_1PSIDTS_KEY")
+youtube_cookie_secure_1papisid_key = os.getenv("YOUTUBE_COOKIE_SECURE_1PAPISID_KEY")
+youtube_cookie_secure_1psid_key = os.getenv("YOUTUBE_COOKIE_SECURE_1PSID_KEY")
+youtube_cookie_secure_1psidcc_key = os.getenv("YOUTUBE_COOKIE_SECURE_1PSIDCC_KEY")
+youtube_cookie_secure_3psidts_key = os.getenv("YOUTUBE_COOKIE_SECURE_3PSIDTS_KEY")
+youtube_cookie_secure_3papisid_key = os.getenv("YOUTUBE_COOKIE_SECURE_3PAPISID_KEY")
+youtube_cookie_secure_3psid_key = os.getenv("YOUTUBE_COOKIE_SECURE_3PSID_KEY")
+youtube_cookie_secure_3psidcc_key = os.getenv("YOUTUBE_COOKIE_SECURE_3PSIDCC_KEY")
+youtube_cookie_sid_value = os.getenv("YOUTUBE_COOKIE_SID_VALUE")
+youtube_cookie_hsid_value = os.getenv("YOUTUBE_COOKIE_HSID_VALUE")
+youtube_cookie_ssid_value = os.getenv("YOUTUBE_COOKIE_SSID_VALUE")
+youtube_cookie_sapisid_value = os.getenv("YOUTUBE_COOKIE_SAPISID_VALUE")
+youtube_cookie_secure_1psidts_value = os.getenv("YOUTUBE_COOKIE_SECURE_1PSIDTS_VALUE")
+youtube_cookie_secure_1papisid_value = os.getenv("YOUTUBE_COOKIE_SECURE_1PAPISID_VALUE")
+youtube_cookie_secure_1psid_value = os.getenv("YOUTUBE_COOKIE_SECURE_1PSID_VALUE")
+youtube_cookie_secure_1psidcc_value = os.getenv("YOUTUBE_COOKIE_SECURE_1PSIDCC_VALUE")
+youtube_cookie_secure_3psidts_value = os.getenv("YOUTUBE_COOKIE_SECURE_3PSIDTS_VALUE")
+youtube_cookie_secure_3papisid_value = os.getenv("YOUTUBE_COOKIE_SECURE_3PAPISID_VALUE")
+youtube_cookie_secure_3psid_value = os.getenv("YOUTUBE_COOKIE_SECURE_3PSID_VALUE")
+youtube_cookie_secure_3psidcc_value = os.getenv("YOUTUBE_COOKIE_SECURE_3PSIDCC_VALUE")
 
 
 # フレーム取得、分割、予測、API送信の処理
@@ -32,7 +56,19 @@ def capture_split_predict_and_send(
 
     # streamlinkとffmpegを使って1フレームを取得
     command = (
-        f'streamlink -O "{youtube_url}" best | '
+        f'streamlink --http-cookie "{youtube_cookie_sid_key}={youtube_cookie_sid_value}" '
+        f'--http-cookie "{youtube_cookie_hsid_key}={youtube_cookie_hsid_value}" '
+        f'--http-cookie "{youtube_cookie_ssid_key}={youtube_cookie_ssid_value}" '
+        f'--http-cookie "{youtube_cookie_sapisid_key}={youtube_cookie_sapisid_value}" '
+        f'--http-cookie "{youtube_cookie_secure_1psidts_key}={youtube_cookie_secure_1psidts_value}" '
+        f'--http-cookie "{youtube_cookie_secure_1papisid_key}={youtube_cookie_secure_1papisid_value}" '
+        f'--http-cookie "{youtube_cookie_secure_1psid_key}={youtube_cookie_secure_1psid_value}" '
+        f'--http-cookie "{youtube_cookie_secure_1psidcc_key}={youtube_cookie_secure_1psidcc_value}" '
+        f'--http-cookie "{youtube_cookie_secure_3psidts_key}={youtube_cookie_secure_3psidts_value}" '
+        f'--http-cookie "{youtube_cookie_secure_3papisid_key}={youtube_cookie_secure_3papisid_value}" '
+        f'--http-cookie "{youtube_cookie_secure_3psid_key}={youtube_cookie_secure_3psid_value}" '
+        f'--http-cookie "{youtube_cookie_secure_3psidcc_key}={youtube_cookie_secure_3psidcc_value}" '
+        f'-O "{youtube_url}" best | '
         f'ffmpeg -y -i - -frames:v 1 "{output_path}"'
     )
     try:
