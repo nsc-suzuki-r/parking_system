@@ -1,0 +1,25 @@
+# Netscape HTTP Cookie File
+# http://curl.haxx.se/rfc/cookie_spec.html
+# This is a generated file!  Do not edit.
+
+.youtube.com	TRUE	/	TRUE	1732785919	GPS
+.youtube.com	TRUE	/	TRUE	1767344157	PREF
+.youtube.com	TRUE	/	FALSE	1767344139	SID
+.youtube.com	TRUE	/	TRUE	1764320139	__Secure-3PSIDTS
+.youtube.com	TRUE	/	TRUE	1767344139	__Secure-1PSID
+.youtube.com	TRUE	/	TRUE	1767344139	__Secure-3PSID
+.youtube.com	TRUE	/	FALSE	1767344139	HSID
+.youtube.com	TRUE	/	TRUE	1767344139	SSID
+.youtube.com	TRUE	/	FALSE	1767344139	APISID
+.youtube.com	TRUE	/	TRUE	1767344139	SAPISID
+.youtube.com	TRUE	/	TRUE	1767344139	__Secure-1PAPISID
+.youtube.com	TRUE	/	TRUE	1767344139	__Secure-3PAPISID
+.youtube.com	TRUE	/	TRUE	1767344139	LOGIN_INFO
+.youtube.com	TRUE	/	FALSE	1732784161	ST-tladcw
+.youtube.com	TRUE	/	FALSE	1732784162	ST-xuwub9
+.youtube.com	TRUE	/	FALSE	1764320159	SIDCC
+.youtube.com	TRUE	/	TRUE	1764320159	__Secure-1PSIDCC
+.youtube.com	TRUE	/	TRUE	1764320159	__Secure-3PSIDCC
+.youtube.com	TRUE	/	TRUE	0	YSC
+.youtube.com	TRUE	/	TRUE	1748336121	VISITOR_INFO1_LIVE
+.youtube.com	TRUE	/	TRUE	1748336121	VISITOR_PRIVACY_METADATA
