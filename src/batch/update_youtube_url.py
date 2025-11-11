@@ -7,11 +7,12 @@ load_dotenv()
 
 API_KEY = os.getenv("YOUTUBE_API_KEY")
 CHANNEL_ID = os.getenv("YOUTUBE_CHANNEL_ID")
+TARGET_TITLE = os.getenv("TARGET_TITLE")
 
 
-def get_live_url(api_key, channel_id):
-    # チャンネルの最新動画を検索
-    url = f"https://www.googleapis.com/youtube/v3/search?part=id&channelId={channel_id}&type=video&order=date&key={api_key}"
+def get_live_url(api_key, channel_id, target_title=TARGET_TITLE):
+    # チャンネルの最新動画を検索（ライブ配信のみ）
+    url = f"https://www.googleapis.com/youtube/v3/search?part=id&channelId={channel_id}&type=video&eventType=live&key={api_key}"
     res = requests.get(url).json()
 
     for item in res.get("items", []):
@@ -19,9 +20,14 @@ def get_live_url(api_key, channel_id):
         detail_url = f"https://www.googleapis.com/youtube/v3/videos?part=snippet,liveStreamingDetails&id={video_id}&key={api_key}"
         detail = requests.get(detail_url).json()
 
-        live_info = detail["items"][0]["snippet"]["liveBroadcastContent"]
-        if live_info == "live":
-            return f"https://www.youtube.com/watch?v={video_id}"
+        if detail.get("items"):
+            video_info = detail["items"][0]
+            title = video_info["snippet"]["title"]
+            live_info = video_info["snippet"]["liveBroadcastContent"]
+
+            # タイトルが一致し、かつライブ配信中の場合
+            if live_info == "live" and target_title in title:
+                return f"https://www.youtube.com/watch?v={video_id}"
 
     return None
 
