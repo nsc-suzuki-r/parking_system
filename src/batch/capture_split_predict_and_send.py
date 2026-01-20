@@ -37,20 +37,27 @@ def capture_split_predict_and_send(
 
     for attempt in range(max_retries):
         try:
-            print(f"フレーム取得中...")
+            print(f"\n試行 {attempt + 1}/{max_retries}: フレーム取得中...")
 
             # Step 1: yt-dlpでファイルにダウンロード
             download_cmd = (
                 f'yt-dlp --cookies cookies.txt -o "{temp_video}" '
                 f'-f "best[ext=mp4]" {youtube_url}'
             )
+            print(f"実行コマンド: {download_cmd[:100]}...")
 
             result = subprocess.run(
-                download_cmd, shell=True, capture_output=True, text=True, timeout=60
+                download_cmd, shell=True, capture_output=True, text=True, timeout=10
             )
 
             # ダウンロード失敗チェック
             if result.returncode != 0:
+                print(f"ダウンロードエラー (コード: {result.returncode})")
+                if result.stdout:
+                    print(f"stdout: {result.stdout[:500]}")
+                if result.stderr:
+                    print(f"stderr: {result.stderr[:500]}")
+
                 if "403" in result.stderr or "Sign in" in result.stderr:
                     print("エラー: YouTubeが認証を要求しています")
                     print("→ cookieを更新してください:")
@@ -58,17 +65,23 @@ def capture_split_predict_and_send(
                         "  yt-dlp --cookies-from-browser chrome --save-cookies cookies.txt 'https://www.youtube.com'"
                     )
                     raise Exception("Authentication required: 403 Forbidden")
-                raise Exception(f"Download failed: {result.stderr[:200]}")
+                raise Exception(f"Download failed")
 
             # ファイル確認
             if not os.path.exists(temp_video) or os.path.getsize(temp_video) < 1000:
+                print(
+                    f"ダウンロードファイルサイズが不足: {os.path.getsize(temp_video) if os.path.exists(temp_video) else 0} bytes"
+                )
                 raise Exception("Downloaded file is invalid")
+
+            print(f"ダウンロード成功: {os.path.getsize(temp_video)} bytes")
 
             # Step 2: ffmpegでフレーム抽出
             extract_cmd = (
                 f'ffmpeg -y -i "{temp_video}" -frames:v 1 -q:v 2 "{output_path}" '
                 f"-loglevel error 2>/dev/null"
             )
+            print(f"実行コマンド: {extract_cmd[:100]}...")
 
             result = subprocess.run(
                 extract_cmd, shell=True, capture_output=True, text=True, timeout=10
@@ -80,6 +93,11 @@ def capture_split_predict_and_send(
 
             # フレーム確認
             if not os.path.exists(output_path) or os.path.getsize(output_path) == 0:
+                print(f"フレーム抽出エラー")
+                if result.stdout:
+                    print(f"stdout: {result.stdout[:500]}")
+                if result.stderr:
+                    print(f"stderr: {result.stderr[:500]}")
                 raise Exception("Frame extraction failed")
 
             print(f"フレームが正常に保存されました: {output_path}")
@@ -93,16 +111,29 @@ def capture_split_predict_and_send(
             print(f"予測結果: {prediction_results}")
             break  # 成功したら終了
 
-        except subprocess.TimeoutExpired:
+        except subprocess.TimeoutExpired as e:
             if os.path.exists(temp_video):
                 os.remove(temp_video)
-            print(f"タイムアウト: フレーム取得に時間がかかりすぎました")
-            raise
+            print(f"\n【タイムアウト発生】")
+            print(f"試行 {attempt + 1}/{max_retries}")
+            print(f"タイムアウト時間: 10秒")
+            print(f"実行していたコマンド: {str(e.cmd)[:200]}")
+            if attempt < max_retries - 1:
+                print(f"→ 次を試行します...\n")
+            else:
+                print(f"→ 最大試行回数に達しました")
+                raise
         except Exception as e:
             if os.path.exists(temp_video):
                 os.remove(temp_video)
-            print(f"エラーが発生しました: {e}")
-            raise
+            print(f"\n【エラー発生】")
+            print(f"試行 {attempt + 1}/{max_retries}")
+            print(f"エラー内容: {e}")
+            if attempt < max_retries - 1:
+                print(f"→ 次を試行します...\n")
+            else:
+                print(f"→ 最大試行回数に達しました")
+                raise
 
 
 # 使用例
