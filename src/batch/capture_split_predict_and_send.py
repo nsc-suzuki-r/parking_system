@@ -54,16 +54,36 @@ def _capture_frame_from_youtube(youtube_url, output_path):
     )
 
     # yt-dlpの標準出力をffmpegにパイプ
+    # 重要: ffmpegプロセスがまだパイプを使用している間に親プロセスのパイプを閉じる
     yt_dlp_process.stdout.close()
 
-    # 両プロセスの終了を待つ
-    ffmpeg_process.communicate()
-    yt_dlp_stdout, yt_dlp_stderr = yt_dlp_process.communicate()
+    # 両プロセスの終了を待つ (タイムアウト付き)
+    try:
+        ffmpeg_stdout, ffmpeg_stderr = ffmpeg_process.communicate(timeout=60)
+        print("ffmpeg処理完了")
+    except subprocess.TimeoutExpired:
+        print("ffmpegがタイムアウトしました。プロセスを終了します...")
+        ffmpeg_process.kill()
+        ffmpeg_process.wait()
+        raise RuntimeError("ffmpeg timeout: フレーム取得に60秒以上かかりました")
+
+    yt_dlp_process.poll()
 
     # フレームが保存されたかを確認
     print("フレーム保存の確認中...")
     if not os.path.exists(output_path):
+        print(f"ffmpeg stderr: {ffmpeg_stderr.decode('utf-8', errors='ignore')}")
+        if ffmpeg_process.returncode != 0:
+            error_msg = (
+                ffmpeg_stderr.decode("utf-8", errors="ignore")
+                if ffmpeg_stderr
+                else f"ffmpeg exited with code {ffmpeg_process.returncode}"
+            )
+            raise RuntimeError(f"ffmpeg error: {error_msg}")
         if yt_dlp_process.returncode != 0:
+            yt_dlp_stderr = (
+                yt_dlp_process.stderr.read() if yt_dlp_process.stderr else b""
+            )
             error_msg = (
                 yt_dlp_stderr.decode("utf-8", errors="ignore")
                 if yt_dlp_stderr
