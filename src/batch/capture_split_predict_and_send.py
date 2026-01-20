@@ -32,7 +32,7 @@ def capture_split_predict_and_send(
 
     # yt-dlpでライブストリームの動画データを取得し、ffmpegで1フレームを保存
     command = (
-        f'yt-dlp -o - -f "best[ext=mp4]" {youtube_url} | '
+        f'yt-dlp --cookies cookies.txt -o - -f "best[ext=mp4]" {youtube_url} | '
         f'ffmpeg -y -i pipe:0 -frames:v 1 "{output_path}"'
     )
     try:
