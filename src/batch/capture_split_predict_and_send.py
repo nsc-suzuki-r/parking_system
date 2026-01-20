@@ -26,6 +26,7 @@ def _capture_frame_from_youtube(youtube_url, output_path):
         RuntimeError: フレーム取得に失敗した場合
     """
     # yt-dlpプロセス（クッキーファイルを使用）
+    print("yt-dlpでフレームを取得中...")
     yt_dlp_process = subprocess.Popen(
         [
             "yt-dlp",
@@ -44,6 +45,7 @@ def _capture_frame_from_youtube(youtube_url, output_path):
     )
 
     # ffmpegプロセス
+    print("ffmpegでフレームを保存中...")
     ffmpeg_process = subprocess.Popen(
         ["ffmpeg", "-y", "-i", "pipe:0", "-frames:v", "1", output_path],
         stdin=yt_dlp_process.stdout,
@@ -59,6 +61,7 @@ def _capture_frame_from_youtube(youtube_url, output_path):
     yt_dlp_stdout, yt_dlp_stderr = yt_dlp_process.communicate()
 
     # フレームが保存されたかを確認
+    print("フレーム保存の確認中...")
     if not os.path.exists(output_path):
         if yt_dlp_process.returncode != 0:
             error_msg = (
@@ -83,6 +86,7 @@ def capture_split_predict_and_send(
         models_and_outputs: モデルと出力ファイルのマッピング辞書
     """
     try:
+        print("出力ディレクトリの準備中...")
         # 出力ディレクトリを作成
         clear_existing_files(output_folder)
         os.makedirs(output_folder, exist_ok=True)
@@ -93,25 +97,26 @@ def capture_split_predict_and_send(
 
         # フレーム取得
         _capture_frame_from_youtube(youtube_url, output_path)
-        print(f"✓ フレームが正常に保存されました: {output_path}")
+        print(f"フレームが正常に保存されました: {output_path}")
 
         # 画像分割
         split_segments = split_image(output_path, target_folder, models_and_outputs)
-        print(f"✓ 分割完了: {len(split_segments)}個のセグメント")
+        print(f"分割完了: {len(split_segments)}個のセグメント")
 
         # 予測実行
         prediction_results = run_predictions(split_segments)
-        print(f"✓ 予測結果: {prediction_results}")
+        print(f"予測結果: {prediction_results}")
 
         return prediction_results
 
     except (RuntimeError, subprocess.CalledProcessError) as e:
-        print(f"✗ エラーが発生しました: {e}")
+        print(f"エラーが発生しました: {e}")
         raise
 
 
 # 使用例
 if __name__ == "__main__":
+    print("処理を開始します...")
     youtube_url = os.getenv("YOUTUBE_URL")
 
     output_folder = "data/upload"
@@ -126,6 +131,7 @@ if __name__ == "__main__":
     }
 
     # 実行
+    print("フレーム取得、分割、予測、送信を実行中...")
     capture_split_predict_and_send(
         youtube_url, output_folder, target_folder, models_and_outputs
     )
