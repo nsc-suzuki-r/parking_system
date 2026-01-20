@@ -25,73 +25,69 @@ def _capture_frame_from_youtube(youtube_url, output_path):
     Raises:
         RuntimeError: フレーム取得に失敗した場合
     """
-    # yt-dlpプロセス（クッキーファイルを使用）
-    print("yt-dlpでフレームを取得中...")
-    yt_dlp_process = subprocess.Popen(
-        [
-            "yt-dlp",
-            "--cookies",
-            "cookies.txt",
-            "--socket-timeout",
-            "30",
-            "-o",
-            "-",
-            "-f",
-            "best[ext=mp4]",
-            youtube_url,
-        ],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-
-    # ffmpegプロセス
-    print("ffmpegでフレームを保存中...")
-    ffmpeg_process = subprocess.Popen(
-        ["ffmpeg", "-y", "-i", "pipe:0", "-frames:v", "1", output_path],
-        stdin=yt_dlp_process.stdout,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-
-    # yt-dlpの標準出力をffmpegにパイプ
-    # 重要: ffmpegプロセスがまだパイプを使用している間に親プロセスのパイプを閉じる
-    yt_dlp_process.stdout.close()
-
-    # 両プロセスの終了を待つ (タイムアウト付き)
+    # ステップ1: yt-dlpで直接ストリームURLを取得
+    print("yt-dlpでストリームURLを取得中...")
     try:
-        ffmpeg_stdout, ffmpeg_stderr = ffmpeg_process.communicate(timeout=60)
-        print("ffmpeg処理完了")
-    except subprocess.TimeoutExpired:
-        print("ffmpegがタイムアウトしました。プロセスを終了します...")
-        ffmpeg_process.kill()
-        ffmpeg_process.wait()
-        raise RuntimeError("ffmpeg timeout: フレーム取得に60秒以上かかりました")
+        result = subprocess.run(
+            [
+                "yt-dlp",
+                "--cookies",
+                "cookies.txt",
+                "--get-url",
+                "-f",
+                "best[ext=mp4]",
+                youtube_url,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
 
-    yt_dlp_process.poll()
+        if result.returncode != 0:
+            raise RuntimeError(f"yt-dlp error: {result.stderr}")
+
+        stream_url = result.stdout.strip()
+        if not stream_url:
+            raise RuntimeError("ストリームURLの取得に失敗しました")
+
+        print(f"ストリームURL取得完了")
+
+    except subprocess.TimeoutExpired:
+        raise RuntimeError("yt-dlp timeout: ストリームURL取得に30秒以上かかりました")
+
+    # ステップ2: ffmpegで直接ストリームURLからフレームを取得
+    print("ffmpegでフレームを保存中...")
+    try:
+        result = subprocess.run(
+            [
+                "ffmpeg",
+                "-y",
+                "-i",
+                stream_url,
+                "-frames:v",
+                "1",
+                "-timeout",
+                "10000000",  # 10秒のタイムアウト（マイクロ秒）
+                output_path,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+
+        if result.returncode != 0:
+            print(f"ffmpeg stderr: {result.stderr}")
+            raise RuntimeError(f"ffmpeg error: {result.stderr}")
+
+        print("ffmpeg処理完了")
+
+    except subprocess.TimeoutExpired:
+        raise RuntimeError("ffmpeg timeout: フレーム保存に30秒以上かかりました")
 
     # フレームが保存されたかを確認
     print("フレーム保存の確認中...")
     if not os.path.exists(output_path):
-        print(f"ffmpeg stderr: {ffmpeg_stderr.decode('utf-8', errors='ignore')}")
-        if ffmpeg_process.returncode != 0:
-            error_msg = (
-                ffmpeg_stderr.decode("utf-8", errors="ignore")
-                if ffmpeg_stderr
-                else f"ffmpeg exited with code {ffmpeg_process.returncode}"
-            )
-            raise RuntimeError(f"ffmpeg error: {error_msg}")
-        if yt_dlp_process.returncode != 0:
-            yt_dlp_stderr = (
-                yt_dlp_process.stderr.read() if yt_dlp_process.stderr else b""
-            )
-            error_msg = (
-                yt_dlp_stderr.decode("utf-8", errors="ignore")
-                if yt_dlp_stderr
-                else "Unknown error"
-            )
-            raise RuntimeError(f"yt-dlp error: {error_msg}")
-        else:
-            raise RuntimeError("フレームの保存に失敗しました")
+        raise RuntimeError("フレームの保存に失敗しました")
 
 
 def capture_split_predict_and_send(
