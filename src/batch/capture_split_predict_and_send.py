@@ -29,121 +29,27 @@ def capture_split_predict_and_send(
     # 現在時刻に基づいてファイル名を作成
     current_time = datetime.now().strftime("%H%M%S")
     output_path = os.path.join(output_folder, f"frame_{current_time}.jpg")
-    temp_video = os.path.join(output_folder, f"temp_{current_time}.mp4")
 
-    # yt-dlpでライブストリームの動画をファイルにダウンロード
-    # （パイプを使わない → タイムアウト回避）
-    max_retries = 1
+    # yt-dlpでライブストリームの動画データを取得し、ffmpegで1フレームを保存
+    command = (
+        f'yt-dlp --cookies cookies.txt -o - -f "best[ext=mp4]" {youtube_url} | '
+        f'ffmpeg -y -i pipe:0 -frames:v 1 "{output_path}"'
+    )
 
-    for attempt in range(max_retries):
-        try:
-            print(f"\n試行 {attempt + 1}/{max_retries}: フレーム取得中...")
+    try:
+        subprocess.run(command, shell=True, check=True)
+        print(f"フレームが正常に保存されました: {output_path}")
 
-            # Step 1: yt-dlpでファイルにダウンロード
-            # HLSストリームなので時間がかかるため、タイムアウトは180秒に設定
-            download_cmd = (
-                f'yt-dlp --cookies cookies.txt -o "{temp_video}" '
-                f"--socket-timeout 30 "
-                f"--no-warnings "
-                f'-f "best[ext=mp4]" {youtube_url}'
-            )
-            print(f"実行コマンド: {download_cmd[:100]}...")
-            print(f"タイムアウト: 180秒（HLSストリーム対応）")
-            print(f"実行中... (進捗情報: yt-dlpのログをご確認ください)")
+        # 分割処理を実行
+        split_segments = split_image(output_path, target_folder, models_and_outputs)
+        print(f"分割完了: {split_segments}")
 
-            result = subprocess.run(
-                download_cmd, shell=True, capture_output=True, text=True, timeout=180
-            )
+        # 分割結果を使って予測とAPI送信を実行
+        prediction_results = run_predictions(split_segments)
+        print(f"予測結果: {prediction_results}")
 
-            # ダウンロード失敗チェック
-            if result.returncode != 0:
-                print(f"ダウンロードエラー (コード: {result.returncode})")
-                if result.stdout:
-                    print(f"stdout:\n{result.stdout[:1000]}")
-                if result.stderr:
-                    print(f"stderr:\n{result.stderr[:1000]}")
-
-                if "403" in result.stderr or "Sign in" in result.stderr:
-                    print("エラー: YouTubeが認証を要求しています")
-                    print("→ cookieを更新してください:")
-                    print(
-                        "  yt-dlp --cookies-from-browser chrome --save-cookies cookies.txt 'https://www.youtube.com'"
-                    )
-                    raise Exception("Authentication required: 403 Forbidden")
-                raise Exception(f"Download failed")
-
-            # ファイル確認
-            if not os.path.exists(temp_video) or os.path.getsize(temp_video) < 1000:
-                print(
-                    f"ダウンロードファイルサイズが不足: {os.path.getsize(temp_video) if os.path.exists(temp_video) else 0} bytes"
-                )
-                raise Exception("Downloaded file is invalid")
-
-            print(f"ダウンロード成功: {os.path.getsize(temp_video)} bytes")
-
-            # Step 2: ffmpegでフレーム抽出
-            extract_cmd = (
-                f'ffmpeg -y -i "{temp_video}" -frames:v 1 -q:v 2 "{output_path}" '
-                f"-loglevel error 2>/dev/null"
-            )
-            print(f"実行コマンド: {extract_cmd[:100]}...")
-
-            result = subprocess.run(
-                extract_cmd, shell=True, capture_output=True, text=True, timeout=10
-            )
-
-            # クリーンアップ
-            if os.path.exists(temp_video):
-                os.remove(temp_video)
-
-            # フレーム確認
-            if not os.path.exists(output_path) or os.path.getsize(output_path) == 0:
-                print(f"フレーム抽出エラー")
-                if result.stdout:
-                    print(f"stdout: {result.stdout[:500]}")
-                if result.stderr:
-                    print(f"stderr: {result.stderr[:500]}")
-                raise Exception("Frame extraction failed")
-
-            print(f"フレームが正常に保存されました: {output_path}")
-
-            # 分割処理を実行
-            split_segments = split_image(output_path, target_folder, models_and_outputs)
-            print(f"分割完了: {split_segments}")
-
-            # 分割結果を使って予測とAPI送信を実行
-            prediction_results = run_predictions(split_segments)
-            print(f"予測結果: {prediction_results}")
-            break  # 成功したら終了
-
-        except subprocess.TimeoutExpired as e:
-            if os.path.exists(temp_video):
-                file_size = (
-                    os.path.getsize(temp_video) if os.path.exists(temp_video) else 0
-                )
-                print(f"部分ダウンロード検出: {file_size} bytes")
-                os.remove(temp_video)
-            print(f"\n【タイムアウト発生】")
-            print(f"試行 {attempt + 1}/{max_retries}")
-            print(f"タイムアウト時間: 180秒")
-            print(f"実行していたコマンド: {str(e.cmd)[:300]}")
-            print(f"→ yt-dlpがダウンロード中にタイムアウトしました")
-            if attempt < max_retries - 1:
-                print(f"→ 次を試行します...\n")
-            else:
-                print(f"→ 最大試行回数に達しました")
-                raise
-        except Exception as e:
-            if os.path.exists(temp_video):
-                os.remove(temp_video)
-            print(f"\n【エラー発生】")
-            print(f"試行 {attempt + 1}/{max_retries}")
-            print(f"エラー内容: {e}")
-            if attempt < max_retries - 1:
-                print(f"→ 次を試行します...\n")
-            else:
-                print(f"→ 最大試行回数に達しました")
-                raise
+    except subprocess.CalledProcessError as e:
+        print(f"エラーが発生しました: {e}")
 
 
 # 使用例
