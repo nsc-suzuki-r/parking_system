@@ -31,25 +31,52 @@ def capture_split_predict_and_send(
     output_path = os.path.join(output_folder, f"frame_{current_time}.jpg")
 
     # yt-dlpでライブストリームの動画データを取得し、ffmpegで1フレームを保存
-    command = (
-        f'yt-dlp --cookies cookies.txt -o - -f "best[ext=mp4]" {youtube_url} | '
-        f'ffmpeg -y -i pipe:0 -frames:v 1 "{output_path}"'
-    )
-    try:
-        subprocess.run(command, shell=True, check=True)
-        print(f"フレームが正常に保存されました: {output_path}")
+    # ffmpegの出力をサイレントにしてエラーメッセージを抑制
+    max_retries = 1  # 無限ループを防ぐため、本番環境では最大1回のみ実行
 
-        # 分割処理を実行
-        split_segments = split_image(output_path, target_folder, models_and_outputs)
-        print(f"分割完了: {split_segments}")
+    for attempt in range(max_retries):
+        try:
+            command = (
+                f'yt-dlp --cookies cookies.txt -o - -f "best[ext=mp4]" {youtube_url} 2>/dev/null | '
+                f'ffmpeg -y -loglevel error -i pipe:0 -frames:v 1 "{output_path}" 2>/dev/null'
+            )
 
-        # 分割結果を使って予測とAPI送信を実行
-        print(split_segments)
-        prediction_results = run_predictions(split_segments)
-        print(f"予測結果: {prediction_results}")
+            result = subprocess.run(
+                command, shell=True, capture_output=True, text=True, timeout=30
+            )
 
-    except subprocess.CalledProcessError as e:
-        print(f"エラーが発生しました: {e}")
+            # ファイルが正常に作成されたか確認
+            if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+                print(f"フレームが正常に保存されました: {output_path}")
+
+                # 分割処理を実行
+                split_segments = split_image(
+                    output_path, target_folder, models_and_outputs
+                )
+                print(f"分割完了: {split_segments}")
+
+                # 分割結果を使って予測とAPI送信を実行
+                prediction_results = run_predictions(split_segments)
+                print(f"予測結果: {prediction_results}")
+                break  # 成功したら終了
+            else:
+                # 403エラーなど認証エラーの場合
+                if "403" in result.stderr or "bot" in result.stderr.lower():
+                    print("エラー: YouTubeが認証を要求しています（403）")
+                    print("→ cookieを更新してください:")
+                    print(
+                        "  yt-dlp --cookies-from-browser chrome --save-cookies cookies.txt 'https://www.youtube.com'"
+                    )
+                    raise Exception("Authentication required: 403 Forbidden")
+                else:
+                    raise Exception("Frame extraction failed")
+
+        except subprocess.TimeoutExpired:
+            print(f"タイムアウト: フレーム取得に時間がかかりすぎました")
+            raise
+        except Exception as e:
+            print(f"エラーが発生しました: {e}")
+            raise
 
 
 # 使用例
