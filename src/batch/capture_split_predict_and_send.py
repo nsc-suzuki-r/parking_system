@@ -40,17 +40,19 @@ def capture_split_predict_and_send(
             print(f"\n試行 {attempt + 1}/{max_retries}: フレーム取得中...")
 
             # Step 1: yt-dlpでファイルにダウンロード
-            # HLSストリームなので時間がかかるため、タイムアウトは60秒に設定
+            # HLSストリームなので時間がかかるため、タイムアウトは180秒に設定
             download_cmd = (
                 f'yt-dlp --cookies cookies.txt -o "{temp_video}" '
                 f"--socket-timeout 30 "
+                f"--no-warnings "
                 f'-f "best[ext=mp4]" {youtube_url}'
             )
             print(f"実行コマンド: {download_cmd[:100]}...")
-            print(f"タイムアウト: 60秒（HLSストリームのため長めに設定）")
+            print(f"タイムアウト: 180秒（HLSストリーム対応）")
+            print(f"実行中... (進捗情報: yt-dlpのログをご確認ください)")
 
             result = subprocess.run(
-                download_cmd, shell=True, capture_output=True, text=True, timeout=60
+                download_cmd, shell=True, capture_output=True, text=True, timeout=180
             )
 
             # ダウンロード失敗チェック
@@ -116,10 +118,14 @@ def capture_split_predict_and_send(
 
         except subprocess.TimeoutExpired as e:
             if os.path.exists(temp_video):
+                file_size = (
+                    os.path.getsize(temp_video) if os.path.exists(temp_video) else 0
+                )
+                print(f"部分ダウンロード検出: {file_size} bytes")
                 os.remove(temp_video)
             print(f"\n【タイムアウト発生】")
             print(f"試行 {attempt + 1}/{max_retries}")
-            print(f"タイムアウト時間: 60秒")
+            print(f"タイムアウト時間: 180秒")
             print(f"実行していたコマンド: {str(e.cmd)[:300]}")
             print(f"→ yt-dlpがダウンロード中にタイムアウトしました")
             if attempt < max_retries - 1:
