@@ -29,52 +29,78 @@ def capture_split_predict_and_send(
     # 現在時刻に基づいてファイル名を作成
     current_time = datetime.now().strftime("%H%M%S")
     output_path = os.path.join(output_folder, f"frame_{current_time}.jpg")
+    temp_video = os.path.join(output_folder, f"temp_{current_time}.mp4")
 
-    # yt-dlpでライブストリームの動画データを取得し、ffmpegで1フレームを保存
-    # ffmpegの出力をサイレントにしてエラーメッセージを抑制
-    max_retries = 1  # 無限ループを防ぐため、本番環境では最大1回のみ実行
+    # yt-dlpでライブストリームの動画をファイルにダウンロード
+    # （パイプを使わない → タイムアウト回避）
+    max_retries = 1
 
     for attempt in range(max_retries):
         try:
-            command = (
-                f'yt-dlp --cookies cookies.txt -o - -f "best[ext=mp4]" {youtube_url} 2>/dev/null | '
-                f'ffmpeg -y -loglevel error -i pipe:0 -frames:v 1 "{output_path}" 2>/dev/null'
+            print(f"フレーム取得中...")
+
+            # Step 1: yt-dlpでファイルにダウンロード
+            download_cmd = (
+                f'yt-dlp --cookies cookies.txt -o "{temp_video}" '
+                f'-f "best[ext=mp4]" {youtube_url}'
             )
 
             result = subprocess.run(
-                command, shell=True, capture_output=True, text=True, timeout=30
+                download_cmd, shell=True, capture_output=True, text=True, timeout=60
             )
 
-            # ファイルが正常に作成されたか確認
-            if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
-                print(f"フレームが正常に保存されました: {output_path}")
-
-                # 分割処理を実行
-                split_segments = split_image(
-                    output_path, target_folder, models_and_outputs
-                )
-                print(f"分割完了: {split_segments}")
-
-                # 分割結果を使って予測とAPI送信を実行
-                prediction_results = run_predictions(split_segments)
-                print(f"予測結果: {prediction_results}")
-                break  # 成功したら終了
-            else:
-                # 403エラーなど認証エラーの場合
-                if "403" in result.stderr or "bot" in result.stderr.lower():
-                    print("エラー: YouTubeが認証を要求しています（403）")
+            # ダウンロード失敗チェック
+            if result.returncode != 0:
+                if "403" in result.stderr or "Sign in" in result.stderr:
+                    print("エラー: YouTubeが認証を要求しています")
                     print("→ cookieを更新してください:")
                     print(
                         "  yt-dlp --cookies-from-browser chrome --save-cookies cookies.txt 'https://www.youtube.com'"
                     )
                     raise Exception("Authentication required: 403 Forbidden")
-                else:
-                    raise Exception("Frame extraction failed")
+                raise Exception(f"Download failed: {result.stderr[:200]}")
+
+            # ファイル確認
+            if not os.path.exists(temp_video) or os.path.getsize(temp_video) < 1000:
+                raise Exception("Downloaded file is invalid")
+
+            # Step 2: ffmpegでフレーム抽出
+            extract_cmd = (
+                f'ffmpeg -y -i "{temp_video}" -frames:v 1 -q:v 2 "{output_path}" '
+                f"-loglevel error 2>/dev/null"
+            )
+
+            result = subprocess.run(
+                extract_cmd, shell=True, capture_output=True, text=True, timeout=10
+            )
+
+            # クリーンアップ
+            if os.path.exists(temp_video):
+                os.remove(temp_video)
+
+            # フレーム確認
+            if not os.path.exists(output_path) or os.path.getsize(output_path) == 0:
+                raise Exception("Frame extraction failed")
+
+            print(f"フレームが正常に保存されました: {output_path}")
+
+            # 分割処理を実行
+            split_segments = split_image(output_path, target_folder, models_and_outputs)
+            print(f"分割完了: {split_segments}")
+
+            # 分割結果を使って予測とAPI送信を実行
+            prediction_results = run_predictions(split_segments)
+            print(f"予測結果: {prediction_results}")
+            break  # 成功したら終了
 
         except subprocess.TimeoutExpired:
+            if os.path.exists(temp_video):
+                os.remove(temp_video)
             print(f"タイムアウト: フレーム取得に時間がかかりすぎました")
             raise
         except Exception as e:
+            if os.path.exists(temp_video):
+                os.remove(temp_video)
             print(f"エラーが発生しました: {e}")
             raise
 
