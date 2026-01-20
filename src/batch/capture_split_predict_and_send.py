@@ -40,23 +40,26 @@ def capture_split_predict_and_send(
             print(f"\n試行 {attempt + 1}/{max_retries}: フレーム取得中...")
 
             # Step 1: yt-dlpでファイルにダウンロード
+            # HLSストリームなので時間がかかるため、タイムアウトは60秒に設定
             download_cmd = (
                 f'yt-dlp --cookies cookies.txt -o "{temp_video}" '
+                f"--socket-timeout 30 "
                 f'-f "best[ext=mp4]" {youtube_url}'
             )
             print(f"実行コマンド: {download_cmd[:100]}...")
+            print(f"タイムアウト: 60秒（HLSストリームのため長めに設定）")
 
             result = subprocess.run(
-                download_cmd, shell=True, capture_output=True, text=True, timeout=10
+                download_cmd, shell=True, capture_output=True, text=True, timeout=60
             )
 
             # ダウンロード失敗チェック
             if result.returncode != 0:
                 print(f"ダウンロードエラー (コード: {result.returncode})")
                 if result.stdout:
-                    print(f"stdout: {result.stdout[:500]}")
+                    print(f"stdout:\n{result.stdout[:1000]}")
                 if result.stderr:
-                    print(f"stderr: {result.stderr[:500]}")
+                    print(f"stderr:\n{result.stderr[:1000]}")
 
                 if "403" in result.stderr or "Sign in" in result.stderr:
                     print("エラー: YouTubeが認証を要求しています")
@@ -116,8 +119,9 @@ def capture_split_predict_and_send(
                 os.remove(temp_video)
             print(f"\n【タイムアウト発生】")
             print(f"試行 {attempt + 1}/{max_retries}")
-            print(f"タイムアウト時間: 10秒")
-            print(f"実行していたコマンド: {str(e.cmd)[:200]}")
+            print(f"タイムアウト時間: 60秒")
+            print(f"実行していたコマンド: {str(e.cmd)[:300]}")
+            print(f"→ yt-dlpがダウンロード中にタイムアウトしました")
             if attempt < max_retries - 1:
                 print(f"→ 次を試行します...\n")
             else:
